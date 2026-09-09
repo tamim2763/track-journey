@@ -1,0 +1,6 @@
+{
+  "name": "Track The Journey",
+  "description": "Chapterwise progress tracking, exam scores, and countdowns for all 8 papers across Physics, Chemistry, Higher Math, and Biology with Google Sheets synchronization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
