@@ -11,7 +11,7 @@ import {
   AdmissionExam, 
   SyncMetadata 
 } from './types';
-import { INITIAL_CHAPTERS, INITIAL_EXAMS } from './services/initialData';
+import { INITIAL_CHAPTERS, INITIAL_EXAMS, getCleanChapters, calculateChapterAverage } from './services/initialData';
 import { 
   initAuth, 
   googleSignIn, 
@@ -41,99 +41,151 @@ import {
   Target
 } from 'lucide-react';
 
-const LOCAL_STORAGE_CHAPTERS_KEY = 'hsc_admission_tracker_chapters_v1';
-const LOCAL_STORAGE_EXAMS_KEY = 'hsc_admission_tracker_exams_v1';
-const LOCAL_STORAGE_SYNC_KEY = 'hsc_admission_tracker_sync_meta_v1';
+const isOldDummyData = (list: ChapterProgress[]): boolean => {
+  const vec = list.find((c) => c.id === 'phy-1-2');
+  return vec?.exam1 === 85 && vec?.exam2 === 78;
+};
+
+const isOldDefaultExams = (list: AdmissionExam[]): boolean => {
+  return list.some((e) => e.id === 'buet-2026' || e.id === 'du-ka-2026' || e.id === 'ckruet-2026');
+};
+
+const getStorageKey = (prefix: string, uid?: string | null) => {
+  return `hsc_admission_tracker_${prefix}_${uid ? uid : 'guest'}_v2`;
+};
+
+const loadStoredChapters = (uid?: string | null): ChapterProgress[] => {
+  try {
+    // Purge old v1 global key if it contained dummy data
+    const oldV1 = localStorage.getItem('hsc_admission_tracker_chapters_v1');
+    if (oldV1) {
+      try {
+        const parsedV1 = JSON.parse(oldV1);
+        if (isOldDummyData(parsedV1)) {
+          localStorage.removeItem('hsc_admission_tracker_chapters_v1');
+        }
+      } catch {
+        localStorage.removeItem('hsc_admission_tracker_chapters_v1');
+      }
+    }
+
+    const key = getStorageKey('chapters', uid);
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0 && !isOldDummyData(parsed)) {
+        const existingMap = new Map<string, ChapterProgress>(
+          parsed.map((c: ChapterProgress) => [c.id, c])
+        );
+        return getCleanChapters().map((initCh) => {
+          const savedCh = existingMap.get(initCh.id);
+          if (!savedCh) return initCh;
+          return {
+            ...savedCh,
+            average: calculateChapterAverage(savedCh.exam1, savedCh.exam2, savedCh.exam3),
+          };
+        });
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse cached chapters', e);
+  }
+  return getCleanChapters();
+};
+
+const loadStoredExams = (uid?: string | null): AdmissionExam[] => {
+  try {
+    // Purge old global v1 key if it had default exams
+    const oldV1 = localStorage.getItem('hsc_admission_tracker_exams_v1');
+    if (oldV1) {
+      try {
+        const parsedV1 = JSON.parse(oldV1);
+        if (isOldDefaultExams(parsedV1)) {
+          localStorage.removeItem('hsc_admission_tracker_exams_v1');
+        }
+      } catch {
+        localStorage.removeItem('hsc_admission_tracker_exams_v1');
+      }
+    }
+
+    const key = getStorageKey('exams', uid);
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0 && !isOldDefaultExams(parsed)) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse cached exams', e);
+  }
+  return INITIAL_EXAMS;
+};
+
+const loadStoredSyncMeta = (uid?: string | null): SyncMetadata => {
+  try {
+    const key = getStorageKey('sync_meta', uid);
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Failed to parse cached sync meta', e);
+  }
+  return {
+    spreadsheetId: null,
+    spreadsheetName: null,
+    spreadsheetUrl: null,
+    lastSyncedAt: null,
+    isSyncing: false,
+    error: null,
+    autoSync: true,
+  };
+};
 
 export default function App() {
-  // Load initial state from localStorage or defaults
-  const [chapters, setChapters] = useState<ChapterProgress[]>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_CHAPTERS_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingMap = new Map<string, ChapterProgress>(
-            parsed.map((c: ChapterProgress) => [c.id, c])
-          );
-          // Preserve saved progress while ensuring new chapters (Phy Ch 11, Chem 1&2, Bio 1&2) are present
-          return INITIAL_CHAPTERS.map(
-            (initCh) => existingMap.get(initCh.id) || initCh
-          );
-        }
-      }
-    } catch (e) {
-      console.error('Failed to parse cached chapters', e);
-    }
-    return INITIAL_CHAPTERS;
-  });
+  // Firebase auth & token state
+  const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  const [exams, setExams] = useState<AdmissionExam[]>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_EXAMS_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error('Failed to parse cached exams', e);
-    }
-    return INITIAL_EXAMS;
-  });
-
-  const [syncMeta, setSyncMeta] = useState<SyncMetadata>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_SYNC_KEY);
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.error('Failed to parse cached sync meta', e);
-    }
-    return {
-      spreadsheetId: null,
-      spreadsheetName: null,
-      spreadsheetUrl: null,
-      lastSyncedAt: null,
-      isSyncing: false,
-      error: null,
-      autoSync: true,
-    };
-  });
+  // Load initial state per user or clean defaults
+  const [chapters, setChapters] = useState<ChapterProgress[]>(() => loadStoredChapters(null));
+  const [exams, setExams] = useState<AdmissionExam[]>(() => loadStoredExams(null));
+  const [syncMeta, setSyncMeta] = useState<SyncMetadata>(() => loadStoredSyncMeta(null));
 
   const [activeSubject, setActiveSubject] = useState<SubjectId>('physics');
   const [activePaper, setActivePaper] = useState<PaperId>('1st');
   const [activeTab, setActiveTab] = useState<'tracker' | 'charts' | 'countdowns'>('tracker');
 
-  // Firebase auth & token state
-  const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-  // Persist chapters to localStorage
+  // Persist chapters to localStorage for current user session
   useEffect(() => {
     try {
-      localStorage.setItem(LOCAL_STORAGE_CHAPTERS_KEY, JSON.stringify(chapters));
+      const key = getStorageKey('chapters', user?.uid);
+      localStorage.setItem(key, JSON.stringify(chapters));
     } catch (e) {
       console.error('Failed to save chapters to localStorage', e);
     }
-  }, [chapters]);
+  }, [chapters, user?.uid]);
 
-  // Persist exams to localStorage
+  // Persist exams to localStorage for current user session
   useEffect(() => {
     try {
-      localStorage.setItem(LOCAL_STORAGE_EXAMS_KEY, JSON.stringify(exams));
+      const key = getStorageKey('exams', user?.uid);
+      localStorage.setItem(key, JSON.stringify(exams));
     } catch (e) {
       console.error('Failed to save exams to localStorage', e);
     }
-  }, [exams]);
+  }, [exams, user?.uid]);
 
-  // Persist syncMeta to localStorage
+  // Persist syncMeta to localStorage for current user session
   useEffect(() => {
     try {
+      const key = getStorageKey('sync_meta', user?.uid);
       localStorage.setItem(
-        LOCAL_STORAGE_SYNC_KEY,
+        key,
         JSON.stringify({
           spreadsheetId: syncMeta.spreadsheetId,
           spreadsheetName: syncMeta.spreadsheetName,
@@ -145,18 +197,25 @@ export default function App() {
     } catch (e) {
       console.error('Failed to save syncMeta', e);
     }
-  }, [syncMeta]);
+  }, [syncMeta, user?.uid]);
 
-  // Initialize Auth state listener
+  // Initialize Auth state listener & switch dataset per user account
   useEffect(() => {
     const unsubscribe = initAuth(
       (currentUser, token) => {
         setUser(currentUser);
         setAccessToken(token);
+        // Load data specific to this user; if they are a new user, they start fresh from zero
+        setChapters(loadStoredChapters(currentUser.uid));
+        setExams(loadStoredExams(currentUser.uid));
+        setSyncMeta(loadStoredSyncMeta(currentUser.uid));
       },
       () => {
         setUser(null);
         setAccessToken(null);
+        setChapters(loadStoredChapters(null));
+        setExams(loadStoredExams(null));
+        setSyncMeta(loadStoredSyncMeta(null));
       }
     );
     return () => unsubscribe();
@@ -175,6 +234,9 @@ export default function App() {
       if (res) {
         setUser(res.user);
         setAccessToken(res.accessToken);
+        setChapters(loadStoredChapters(res.user.uid));
+        setExams(loadStoredExams(res.user.uid));
+        setSyncMeta(loadStoredSyncMeta(res.user.uid));
         showToast(`Signed in as ${res.user.displayName || res.user.email}!`, 'success');
       }
     } catch (err: any) {
@@ -187,6 +249,9 @@ export default function App() {
       await logout();
       setUser(null);
       setAccessToken(null);
+      setChapters(loadStoredChapters(null));
+      setExams(loadStoredExams(null));
+      setSyncMeta(loadStoredSyncMeta(null));
       showToast('Signed out from Google Account', 'info');
     } catch (err: any) {
       console.error(err);
@@ -251,7 +316,7 @@ export default function App() {
 
   const handleResetDefaultExams = () => {
     setExams(INITIAL_EXAMS);
-    showToast('Restored default admission exams', 'info');
+    showToast('Restored official admission exams', 'info');
   };
 
   const handleTogglePin = (id: string) => {

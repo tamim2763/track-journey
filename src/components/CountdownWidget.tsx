@@ -138,7 +138,7 @@ export const CountdownWidget: React.FC<CountdownWidgetProps> = ({
           <Clock className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <h3 className="text-base font-bold text-slate-800">No active admission countdowns</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
-            All timers have reached 0:0:0:0 or all countdown cards were removed. You can add a new target exam or coaching test countdown anytime.
+            No countdowns added yet. Add your university admission target dates or coaching tests to start your countdowns.
           </p>
           <div className="flex items-center justify-center space-x-3">
             <button
@@ -156,7 +156,7 @@ export const CountdownWidget: React.FC<CountdownWidgetProps> = ({
                 className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-                <span>Restore Default Exams</span>
+                <span>Restore Official Exams</span>
               </button>
             )}
           </div>

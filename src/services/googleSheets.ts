@@ -1,4 +1,5 @@
 import { ChapterProgress, SubjectId, PaperId } from '../types';
+import { calculateChapterAverage } from './initialData';
 
 export interface SheetSearchItem {
   id: string;
@@ -578,11 +579,7 @@ export async function pullFromSpreadsheet(
         const e2 = parseScore(row[e2Col]);
         const e3 = parseScore(row[e3Col]);
 
-        const validScores = [e1, e2, e3].filter((s): s is number => s !== null);
-        const avg =
-          validScores.length > 0
-            ? Math.round((validScores.reduce((a, b) => a + b, 0) / validScores.length) * 10) / 10
-            : null;
+        const avg = calculateChapterAverage(e1, e2, e3);
 
         const isCurrent =
           String(row[currWeekCol] || '').toUpperCase() === 'TRUE' ||

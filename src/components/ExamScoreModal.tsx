@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChapterProgress, ExamDetails } from '../types';
+import { calculateChapterAverage } from '../services/initialData';
 import { X, Calculator, Check, RotateCcw, AlertCircle, CheckCircle2, Target } from 'lucide-react';
 
 interface ExamScoreModalProps {
@@ -66,6 +67,14 @@ export const ExamScoreModal: React.FC<ExamScoreModalProps> = ({
       isOverMax = true;
     }
   }
+
+  const projectedAverage = calculatedPercentage !== null
+    ? calculateChapterAverage(
+        examField === 'exam1' ? calculatedPercentage : chapter.exam1,
+        examField === 'exam2' ? calculatedPercentage : chapter.exam2,
+        examField === 'exam3' ? calculatedPercentage : chapter.exam3
+      )
+    : null;
 
   const handleSave = () => {
     // If both empty, clear the score
@@ -277,11 +286,17 @@ export const ExamScoreModal: React.FC<ExamScoreModalProps> = ({
             </div>
 
             {calculatedPercentage !== null && (
-              <p className="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-200/60">
-                {calculatedPercentage >= 75
-                  ? '✓ চ্যাপ্টারের প্রস্তুতি সন্তোষজনক (≥ ৭৫%)। এই স্কোরটি চ্যাপ্টারের এভারেজে যোগ হবে।'
-                  : 'লক্ষ্য: প্রতিটি চ্যাপ্টারের এভারেজ ৭৫% বা তার বেশি রাখা বাঞ্ছনীয়।'}
-              </p>
+              <div className="mt-2.5 pt-2.5 border-t border-slate-200/70 space-y-1">
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                  <span>Projected Chapter Average:</span>
+                  <span className="text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                    {projectedAverage !== null ? `${projectedAverage}%` : 'Not graded'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  (৩টি পরীক্ষার গড়: বাকি পরীক্ষা না দেওয়া পর্যন্ত সেগুলো ০% হিসেবে গণনা করা হবে)
+                </p>
+              </div>
             )}
           </div>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ChapterProgress, ChapterStatus, SubjectId, PaperId, ExamDetails } from '../types';
+import { calculateChapterAverage } from '../services/initialData';
 import { ExamScoreModal } from './ExamScoreModal';
 import { 
   Search, 
@@ -88,22 +89,22 @@ export const ChapterTable: React.FC<ChapterTableProps> = ({
       [detailKey]: details,
     };
 
-    // Recalculate average: sum of converted percentage scores divided by valid exams count
-    const validScores = [nextChapter.exam1, nextChapter.exam2, nextChapter.exam3].filter(
-      (s): s is number => s !== null
-    );
+    // Calculate average: If at least 1 exam taken, average of all 3 exams (ungraded counted as 0). Otherwise null (Not Graded).
+    const hasTakenAtLeastOne =
+      nextChapter.exam1 !== null || nextChapter.exam2 !== null || nextChapter.exam3 !== null;
 
-    nextChapter.average =
-      validScores.length > 0
-        ? Math.round((validScores.reduce((a, b) => a + b, 0) / validScores.length) * 10) / 10
-        : null;
+    nextChapter.average = calculateChapterAverage(
+      nextChapter.exam1,
+      nextChapter.exam2,
+      nextChapter.exam3
+    );
 
     // Automatic status progression based on >= 75% target:
     if (nextChapter.average !== null && nextChapter.average >= 75) {
       nextChapter.status = 'completed';
     } else if (nextChapter.average !== null && nextChapter.average < 75 && nextChapter.status === 'completed') {
       nextChapter.status = 'in_progress';
-    } else if (validScores.length > 0 && nextChapter.status === 'not_started') {
+    } else if (hasTakenAtLeastOne && nextChapter.status === 'not_started') {
       nextChapter.status = 'in_progress';
     }
 
@@ -444,10 +445,10 @@ export const ChapterTable: React.FC<ChapterTableProps> = ({
                                 ? ch.average >= 75
                                   ? 'Expected Target achieved (≥ 75%) — চ্যাপ্টারের প্রস্তুতি কমপ্লিট!'
                                   : 'Target is ≥ 75%'
-                                : 'No score'
+                                : 'Not graded'
                             }
                           >
-                            <span>{ch.average !== null ? `${ch.average}%` : 'No score'}</span>
+                            <span>{ch.average !== null ? `${ch.average}%` : 'Not graded'}</span>
                             {ch.average !== null && ch.average >= 75 && (
                               <span className="text-emerald-600 font-black text-[10px]">✓</span>
                             )}

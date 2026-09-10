@@ -3,7 +3,6 @@ import { SubjectId, PaperId, SyncMetadata } from '../types';
 import { User } from 'firebase/auth';
 import { 
   BookOpen, 
-  Layers, 
   BarChart3, 
   Clock, 
   FileSpreadsheet, 
@@ -46,24 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onTriggerSync,
   completionRate,
 }) => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const paperOptions: {
-    subject: SubjectId;
-    paper: PaperId;
-    labelEn: string;
-    labelBn: string;
-    color: string;
-  }[] = [
-    { subject: 'physics', paper: '1st', labelEn: 'Physics 1st', labelBn: 'পদার্থবিজ্ঞান ১ম', color: 'indigo' },
-    { subject: 'physics', paper: '2nd', labelEn: 'Physics 2nd', labelBn: 'পদার্থবিজ্ঞান ২য়', color: 'blue' },
-    { subject: 'chemistry', paper: '1st', labelEn: 'Chemistry 1st', labelBn: 'রসায়ন ১ম', color: 'amber' },
-    { subject: 'chemistry', paper: '2nd', labelEn: 'Chemistry 2nd', labelBn: 'রসায়ন ২য়', color: 'orange' },
-    { subject: 'higher_math', paper: '1st', labelEn: 'Math 1st', labelBn: 'উচ্চতর গণিত ১ম', color: 'emerald' },
-    { subject: 'higher_math', paper: '2nd', labelEn: 'Math 2nd', labelBn: 'উচ্চতর গণিত ২য়', color: 'teal' },
-    { subject: 'biology', paper: '1st', labelEn: 'Biology 1st', labelBn: 'জীববিজ্ঞান ১ম', color: 'rose' },
-    { subject: 'biology', paper: '2nd', labelEn: 'Biology 2nd', labelBn: 'জীববিজ্ঞান ২য়', color: 'pink' },
-  ];
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const subjectGroups: {
     subject: SubjectId;
@@ -260,30 +242,29 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Secondary Ribbon: Subject & Paper Selector */}
-      <div className="bg-slate-50/90 border-t border-slate-200 py-2.5">
+      <div className="bg-slate-50/90 border-t border-slate-200 py-2">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Mobile View: Hamburger Menu for Subject Navigator (< md) */}
-          <div className="md:hidden">
+          <div className="flex items-center justify-between">
             <button
-              id="mobile-subject-menu-button"
+              id="subject-menu-button"
               type="button"
-              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-              className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl border transition shadow-2xs text-left ${
-                isMobileMenuOpen
+              onClick={() => setIsMenuOpen((prev) => !prev)}
+              className={`flex items-center space-x-2.5 px-3 py-1.5 rounded-xl border transition shadow-2xs text-left ${
+                isMenuOpen
                   ? 'bg-indigo-50/80 border-indigo-300 ring-1 ring-indigo-200'
                   : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/80'
               }`}
               aria-label="Select paper"
-              aria-expanded={isMobileMenuOpen}
+              aria-expanded={isMenuOpen}
             >
               <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                  isMobileMenuOpen
+                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                  isMenuOpen
                     ? 'bg-indigo-600 text-white shadow-xs'
                     : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
                 }`}
               >
-                {isMobileMenuOpen ? (
+                {isMenuOpen ? (
                   <X className="w-4 h-4" />
                 ) : (
                   <Menu className="w-4 h-4" />
@@ -293,142 +274,78 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Select paper
               </span>
             </button>
+          </div>
 
-            {/* Mobile Expanded Subject Navigator List */}
-            {isMobileMenuOpen && (
-              <div
-                id="mobile-subject-navigator-drawer"
-                className="mt-2 bg-white border border-slate-200 rounded-xl p-3 shadow-md animate-in fade-in slide-in-from-top-2 duration-150"
-              >
-                {/* 4 Subjects Grid with Papers */}
-                <div className="space-y-2">
-                  {subjectGroups.map((group) => (
-                    <div
-                      key={group.subject}
-                      className="bg-slate-50/80 border border-slate-200/80 rounded-lg p-2"
-                    >
-                      <div className="flex items-center justify-between mb-1.5 px-0.5">
-                        <span className="text-xs font-bold text-slate-800">
-                          {group.nameEn}{' '}
-                          <span className="text-slate-500 font-normal">({group.nameBn})</span>
-                        </span>
-                        <span
-                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                            group.color === 'indigo'
-                              ? 'bg-indigo-100 text-indigo-700'
-                              : group.color === 'amber'
-                              ? 'bg-amber-100 text-amber-800'
-                              : group.color === 'emerald'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-rose-100 text-rose-800'
-                          }`}
-                        >
-                          2 Papers
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {group.papers.map((p) => {
-                          const isSelected =
-                            activeSubject === group.subject && activePaper === p.paper;
-                          return (
-                            <button
-                              key={`${group.subject}-${p.paper}`}
-                              id={`mobile-paper-tab-${group.subject}-${p.paper}`}
-                              onClick={() => {
-                                onSelectPaper(group.subject, p.paper);
-                                setIsMobileMenuOpen(false);
-                              }}
-                              className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition border text-left ${
-                                isSelected
-                                  ? 'bg-white text-indigo-700 border-indigo-400 shadow-xs font-bold ring-2 ring-indigo-100'
-                                  : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60 font-medium'
-                              }`}
-                            >
-                              <div className="min-w-0 pr-1">
-                                <div className="truncate font-semibold">{p.labelEn}</div>
-                                <div className="text-[10px] text-slate-400 truncate">
-                                  {p.labelBn}
-                                </div>
-                              </div>
-                              {isSelected ? (
-                                <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />
-                              ) : (
-                                <div className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
+          {/* Expanded Subject Navigator List (Responsive 1-4 cols) */}
+          {isMenuOpen && (
+            <div
+              id="subject-navigator-drawer"
+              className="mt-2 bg-white border border-slate-200 rounded-xl p-3 shadow-md animate-in fade-in slide-in-from-top-2 duration-150"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                {subjectGroups.map((group) => (
+                  <div
+                    key={group.subject}
+                    className="bg-slate-50/80 border border-slate-200/80 rounded-lg p-2.5 flex flex-col justify-between"
+                  >
+                    <div className="flex items-center justify-between mb-1.5 px-0.5">
+                      <span className="text-xs font-bold text-slate-800">
+                        {group.nameEn}{' '}
+                        <span className="text-slate-500 font-normal">({group.nameBn})</span>
+                      </span>
+                      <span
+                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                          group.color === 'indigo'
+                            ? 'bg-indigo-100 text-indigo-700'
+                            : group.color === 'amber'
+                            ? 'bg-amber-100 text-amber-800'
+                            : group.color === 'emerald'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        2 Papers
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* Desktop View: 2 Lines x 4 Papers (visible on md and up) */}
-          <div className="hidden md:block">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-1.5">
-                <Layers className="w-3.5 h-3.5 text-indigo-600" />
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Select Paper:
-                </span>
-              </div>
-              <span className="text-[11px] text-slate-400 font-medium">
-                Physics & Chemistry • Higher Math & Biology
-              </span>
-            </div>
-
-            <div className="space-y-1.5">
-              {/* Line 1: Physics 1st, Physics 2nd, Chemistry 1st, Chemistry 2nd */}
-              <div className="grid grid-cols-4 gap-2">
-                {paperOptions.slice(0, 4).map((opt) => {
-                  const isSelected = activeSubject === opt.subject && activePaper === opt.paper;
-                  return (
-                    <button
-                      key={`${opt.subject}-${opt.paper}`}
-                      id={`paper-tab-${opt.subject}-${opt.paper}`}
-                      onClick={() => onSelectPaper(opt.subject, opt.paper)}
-                      className={`flex items-center justify-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-medium transition border w-full ${
-                        isSelected
-                          ? 'bg-white text-indigo-700 border-indigo-300 shadow-xs font-semibold ring-1 ring-indigo-200'
-                          : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white hover:border-slate-300 hover:text-slate-900 shadow-2xs'
-                      }`}
-                    >
-                      <Layers className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-indigo-600' : 'text-slate-400'}`} />
-                      <span className="font-semibold whitespace-nowrap">{opt.labelEn}</span>
-                      <span className="text-[11px] text-slate-400 font-normal whitespace-nowrap hidden lg:inline">({opt.labelBn})</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Line 2: Math 1st, Math 2nd, Biology 1st, Biology 2nd */}
-              <div className="grid grid-cols-4 gap-2">
-                {paperOptions.slice(4, 8).map((opt) => {
-                  const isSelected = activeSubject === opt.subject && activePaper === opt.paper;
-                  return (
-                    <button
-                      key={`${opt.subject}-${opt.paper}`}
-                      id={`paper-tab-${opt.subject}-${opt.paper}`}
-                      onClick={() => onSelectPaper(opt.subject, opt.paper)}
-                      className={`flex items-center justify-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-medium transition border w-full ${
-                        isSelected
-                          ? 'bg-white text-indigo-700 border-indigo-300 shadow-xs font-semibold ring-1 ring-indigo-200'
-                          : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white hover:border-slate-300 hover:text-slate-900 shadow-2xs'
-                      }`}
-                    >
-                      <Layers className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-indigo-600' : 'text-slate-400'}`} />
-                      <span className="font-semibold whitespace-nowrap">{opt.labelEn}</span>
-                      <span className="text-[11px] text-slate-400 font-normal whitespace-nowrap hidden lg:inline">({opt.labelBn})</span>
-                    </button>
-                  );
-                })}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {group.papers.map((p) => {
+                        const isSelected =
+                          activeSubject === group.subject && activePaper === p.paper;
+                        return (
+                          <button
+                            key={`${group.subject}-${p.paper}`}
+                            id={`paper-tab-${group.subject}-${p.paper}`}
+                            onClick={() => {
+                              onSelectPaper(group.subject, p.paper);
+                              setIsMenuOpen(false);
+                            }}
+                            className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition border text-left ${
+                              isSelected
+                                ? 'bg-white text-indigo-700 border-indigo-400 shadow-xs font-bold ring-2 ring-indigo-100'
+                                : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60 font-medium'
+                            }`}
+                          >
+                            <div className="min-w-0 pr-1">
+                              <div className="truncate font-semibold">{p.labelEn}</div>
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {p.labelBn}
+                              </div>
+                            </div>
+                            {isSelected ? (
+                              <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />
+                            ) : (
+                              <div className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </header>
