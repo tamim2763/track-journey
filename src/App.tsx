@@ -17,7 +17,8 @@ import {
   googleSignIn, 
   logout, 
   getAccessToken,
-  setCachedToken 
+  setCachedToken,
+  getStoredAccessToken
 } from './services/firebaseAuth';
 import { syncAllChaptersToSpreadsheet } from './services/googleSheets';
 import { User } from 'firebase/auth';
@@ -144,14 +145,25 @@ const loadStoredSyncMeta = (uid?: string | null): SyncMetadata => {
 };
 
 export default function App() {
+  const getInitialUid = (): string | null => {
+    try {
+      return localStorage.getItem('hsc_last_known_uid');
+    } catch {
+      return null;
+    }
+  };
+
+  const initialUid = getInitialUid();
+
   // Firebase auth & token state
   const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(() => getStoredAccessToken(initialUid || undefined));
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   // Load initial state per user or clean defaults
-  const [chapters, setChapters] = useState<ChapterProgress[]>(() => loadStoredChapters(null));
-  const [exams, setExams] = useState<AdmissionExam[]>(() => loadStoredExams(null));
-  const [syncMeta, setSyncMeta] = useState<SyncMetadata>(() => loadStoredSyncMeta(null));
+  const [chapters, setChapters] = useState<ChapterProgress[]>(() => loadStoredChapters(initialUid));
+  const [exams, setExams] = useState<AdmissionExam[]>(() => loadStoredExams(initialUid));
+  const [syncMeta, setSyncMeta] = useState<SyncMetadata>(() => loadStoredSyncMeta(initialUid));
 
   const [activeSubject, setActiveSubject] = useState<SubjectId>('physics');
   const [activePaper, setActivePaper] = useState<PaperId>('1st');
@@ -160,28 +172,31 @@ export default function App() {
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-  // Persist chapters to localStorage for current user session
+  // Persist chapters to localStorage for current user session once auth is resolved
   useEffect(() => {
+    if (!authInitialized) return;
     try {
       const key = getStorageKey('chapters', user?.uid);
       localStorage.setItem(key, JSON.stringify(chapters));
     } catch (e) {
       console.error('Failed to save chapters to localStorage', e);
     }
-  }, [chapters, user?.uid]);
+  }, [chapters, user?.uid, authInitialized]);
 
-  // Persist exams to localStorage for current user session
+  // Persist exams to localStorage for current user session once auth is resolved
   useEffect(() => {
+    if (!authInitialized) return;
     try {
       const key = getStorageKey('exams', user?.uid);
       localStorage.setItem(key, JSON.stringify(exams));
     } catch (e) {
       console.error('Failed to save exams to localStorage', e);
     }
-  }, [exams, user?.uid]);
+  }, [exams, user?.uid, authInitialized]);
 
-  // Persist syncMeta to localStorage for current user session
+  // Persist syncMeta to localStorage for current user session once auth is resolved
   useEffect(() => {
+    if (!authInitialized) return;
     try {
       const key = getStorageKey('sync_meta', user?.uid);
       localStorage.setItem(
@@ -197,7 +212,7 @@ export default function App() {
     } catch (e) {
       console.error('Failed to save syncMeta', e);
     }
-  }, [syncMeta, user?.uid]);
+  }, [syncMeta, user?.uid, authInitialized]);
 
   // Initialize Auth state listener & switch dataset per user account
   useEffect(() => {
@@ -205,17 +220,25 @@ export default function App() {
       (currentUser, token) => {
         setUser(currentUser);
         setAccessToken(token);
+        try {
+          localStorage.setItem('hsc_last_known_uid', currentUser.uid);
+        } catch {}
         // Load data specific to this user; if they are a new user, they start fresh from zero
         setChapters(loadStoredChapters(currentUser.uid));
         setExams(loadStoredExams(currentUser.uid));
         setSyncMeta(loadStoredSyncMeta(currentUser.uid));
+        setAuthInitialized(true);
       },
       () => {
         setUser(null);
         setAccessToken(null);
+        try {
+          localStorage.removeItem('hsc_last_known_uid');
+        } catch {}
         setChapters(loadStoredChapters(null));
         setExams(loadStoredExams(null));
         setSyncMeta(loadStoredSyncMeta(null));
+        setAuthInitialized(true);
       }
     );
     return () => unsubscribe();
@@ -234,9 +257,13 @@ export default function App() {
       if (res) {
         setUser(res.user);
         setAccessToken(res.accessToken);
+        try {
+          localStorage.setItem('hsc_last_known_uid', res.user.uid);
+        } catch {}
         setChapters(loadStoredChapters(res.user.uid));
         setExams(loadStoredExams(res.user.uid));
         setSyncMeta(loadStoredSyncMeta(res.user.uid));
+        setAuthInitialized(true);
         showToast(`Signed in as ${res.user.displayName || res.user.email}!`, 'success');
       }
     } catch (err: any) {
@@ -247,6 +274,9 @@ export default function App() {
   const handleSignOut = async () => {
     try {
       await logout();
+      try {
+        localStorage.removeItem('hsc_last_known_uid');
+      } catch {}
       setUser(null);
       setAccessToken(null);
       setChapters(loadStoredChapters(null));

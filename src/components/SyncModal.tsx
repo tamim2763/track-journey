@@ -92,7 +92,10 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   };
 
   const handleSearchDrive = async () => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      onSignIn();
+      return;
+    }
     try {
       setIsSearching(true);
       const items = await findExistingSheets(accessToken);
@@ -105,7 +108,10 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   };
 
   const handleConnectExistingSheet = async (sheetId: string, sheetTitle?: string) => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      onSignIn();
+      return;
+    }
     try {
       onUpdateSyncMeta({ isSyncing: true });
       setStatusMessage({ type: 'info', text: 'Connecting and pulling data from spreadsheet...' });
@@ -142,7 +148,11 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   };
 
   const handlePushToSheets = async () => {
-    if (!accessToken || !syncMeta.spreadsheetId) return;
+    if (!syncMeta.spreadsheetId) return;
+    if (!accessToken) {
+      onSignIn();
+      return;
+    }
     try {
       onUpdateSyncMeta({ isSyncing: true });
       setStatusMessage({ type: 'info', text: 'Pushing latest marks & progress to Google Sheets...' });
@@ -163,7 +173,11 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   };
 
   const handlePullFromSheets = async () => {
-    if (!accessToken || !syncMeta.spreadsheetId) return;
+    if (!syncMeta.spreadsheetId) return;
+    if (!accessToken) {
+      onSignIn();
+      return;
+    }
     try {
       onUpdateSyncMeta({ isSyncing: true });
       setStatusMessage({ type: 'info', text: 'Pulling latest scores from Google Sheets...' });
@@ -293,14 +307,21 @@ export const SyncModal: React.FC<SyncModalProps> = ({
               )}
             </div>
 
-            {!user && (
+            {!user ? (
               <button
                 onClick={onSignIn}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
               >
                 Sign in with Google
               </button>
-            )}
+            ) : !accessToken ? (
+              <button
+                onClick={onSignIn}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
+              >
+                Authorize Sheets
+              </button>
+            ) : null}
           </div>
         </div>
 
